@@ -1,10 +1,5 @@
 # PyTorch + Akave O3: Decentralized Storage for ML Training Pipelines
 
-**Status**: Ready to submit the plan  
-**Contributor**: Aryan Jain  
-**Date**: February 3, 2026  
-**Note**: Open for potential collaborators
-
 ## Problem Statement
 Modern machine learning workflows are tightly coupled to centralized object storage systems (AWS S3, GCS, Azure Blob) for datasets, checkpoints, and trained models. This coupling introduces several issues:
 - Vendor lock-in and unpredictable storage costs
