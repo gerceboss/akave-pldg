@@ -44,6 +44,16 @@ type JSONRPCResponse struct {
 
 // Event structs
 
+type AddFileBlocksEvent struct {
+	Ids    [][32]byte
+	FileId [32]byte
+}
+
+type AddPeerBlockEvent struct {
+	BlockId [32]byte
+	PeerId  [32]byte
+}
+
 type CreateBucketEvent struct {
 	Id    [32]byte
 	Name  common.Hash
@@ -77,4 +87,33 @@ type FillChunkBlockEvent struct {
 	BlockIndex *big.Int
 	BlockCID   [32]byte
 	NodeId     [32]byte
+}
+
+type DeleteBucketEvent struct {
+	Id    [32]byte
+	Name  common.Hash
+	Owner common.Address
+}
+
+type DeletePeerBlockEvent struct {
+	BlockId [32]byte
+	PeerId  [32]byte
+}
+
+type DeleteFileEvent struct {
+	Id       [32]byte
+	BucketId [32]byte
+	Name     common.Hash
+	Owner    common.Address
+}
+
+type EIP712DomainChangedEvent struct {
+}
+
+type InitializedEvent struct {
+	Name uint64
+}
+
+type UpgradedEvent struct {
+	Implementation common.Address
 }
