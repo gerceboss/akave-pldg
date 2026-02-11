@@ -5,7 +5,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 )
 
-func unpackEvent(contractABI abi.ABI, out interface{}, name string, vLog types.Log) error {
+func UnpackEvent(contractABI abi.ABI, out interface{}, name string, vLog types.Log) error {
 	// Unpack indexed and non-indexed event fields
 	event := contractABI.Events[name]
 	if len(vLog.Data) > 0 {
