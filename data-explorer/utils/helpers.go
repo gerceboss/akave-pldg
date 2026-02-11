@@ -21,14 +21,13 @@ func unpackEvent(contractABI abi.ABI, out interface{}, name string, vLog types.L
 			indexed = append(indexed, arg)
 		}
 	}
-	
-    // topic 0 is the event signature, so we skip it and start from topic 1
+
+	// topic 0 is the event signature, so we skip it and start from topic 1
 	if err := abi.ParseTopics(out, indexed, vLog.Topics[1:]); err != nil {
 		return err
 	}
 
 	return nil
 }
-
 
 

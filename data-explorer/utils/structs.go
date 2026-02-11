@@ -1,7 +1,9 @@
-package utils 
+package utils
 
 import (
 	"encoding/json"
+	"math/big"
+	"github.com/ethereum/go-ethereum/common"
 )
 
 type RpcUrl struct {
@@ -18,9 +20,6 @@ func NewRpcUrl(url string) *RpcUrl {
 	}
 }
 
-
-
-
 type JSONRPCRequest struct {
 	JSONRPC string      `json:"jsonrpc"`
 	Method  string      `json:"method"`
@@ -36,14 +35,13 @@ type JSONRPCError struct {
 type JSONRPCResponse struct {
 	JSONRPC string          `json:"jsonrpc"`
 	Result  json.RawMessage `json:"result"`
-	Error   *JSONRPCError  `json:"error"`
+	Error   *JSONRPCError   `json:"error"`
 	ID      int             `json:"id"`
 }
 
-
 // Structs as per ABI specifications
 
-// Event structs 
+// Event structs
 
 type CreateBucketEvent struct {
 	Id    [32]byte
