@@ -31,7 +31,6 @@ func (r *RpcUrl) MakeRequest(ctx context.Context, method string, request_id int,
 
 	for i := 0; i < max_retry; i++ {
 		req, err := http.NewRequestWithContext(ctx, "POST", r.GetUrl(), bytes.NewBuffer(jsonData))
-		if err != nil {
 			return nil, fmt.Errorf("failed to create HTTP request: %v", err)
 		}
 		req.Header.Set("Content-Type", "application/json")
