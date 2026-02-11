@@ -2,9 +2,8 @@ package utils
 
 import (
 	"bytes"
-	"encoding/json"
-	"errors"
 	"fmt"
+
 	"github.com/ethereum/go-ethereum/accounts/abi"
 )
 
@@ -19,3 +18,10 @@ func GetABI() abi.ABI {
 	}
 	return parsedABI
 }
+
+
+var akave_rpc string = "https://c6-us.akave.ai/ext/bc/56g16Hr1SHQRzdM8JLm3GKYv7APVHY8T2TyeZLvDVzCaTRS7W/rpc"
+var rpc = NewRpcUrl(akave_rpc) 
+
+
+

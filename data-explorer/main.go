@@ -1,9 +1,7 @@
 package main
 
-import (
-	"fmt"
-)
+// TODO: implement entrypoint for the data-explorer service.
 
 func main() {
-	fmt.Println("Data Explorer")
+	// TODO: wire up configuration, decoding, and indexing here.
 }
