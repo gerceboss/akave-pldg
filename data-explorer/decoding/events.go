@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 
@@ -25,12 +26,14 @@ type eventMeta struct {
 	factory func() interface{}
 }
 
-var eventRegistry map[common.Hash]eventMeta
-var contractABI = utils.GetABI()
+var (
+	eventRegistry map[common.Hash]eventMeta
+	contractABI   abi.ABI
+)
 
-// We should add this function in main.go at the startup
 func init() {
 	eventRegistry = make(map[common.Hash]eventMeta)
+	contractABI = utils.GetABI()
 
 	factories := map[string]func() interface{}{
 		"CreateBucket":        func() interface{} { return &utils.CreateBucketEvent{} },
@@ -59,21 +62,12 @@ func init() {
 }
 
 func decodeLog(log types.Log, eventName string, out interface{}) (*DecodedEvent, error) {
-	if len(log.Topics) == 0 {
-		return nil, fmt.Errorf("log has no topics")
-	}
-
-	event, exists := contractABI.Events[eventName]
-	if !exists {
-		return nil, fmt.Errorf("event %s not found in ABI", eventName)
-	}
-
 	if err := utils.UnpackEvent(contractABI, out, eventName, log); err != nil {
 		return nil, fmt.Errorf("failed to unpack event %s: %w", eventName, err)
 	}
 
 	decoded := &DecodedEvent{
-		EventName:       event.Name,
+		EventName:       eventName,
 		ContractAddress: log.Address,
 		BlockNumber:     log.BlockNumber,
 		TxHash:          log.TxHash,
@@ -90,10 +84,10 @@ func DecodeAnyLog(log types.Log) (*DecodedEvent, error) {
 		return nil, fmt.Errorf("log has no topics")
 	}
 
-	topic0 := log.Topics[0]
-	meta, ok := eventRegistry[topic0]
+	topic := log.Topics[0]
+	meta, ok := eventRegistry[topic]
 	if !ok {
-		return nil, fmt.Errorf("unknown or unsupported event signature: %s", topic0.Hex())
+		return nil, fmt.Errorf("unknown event signature: %s", topic.Hex())
 	}
 
 	return decodeLog(log, meta.name, meta.factory())
@@ -107,19 +101,19 @@ func structToMap(s interface{}) map[string]interface{} {
 	}
 
 	val := reflect.Indirect(reflect.ValueOf(s))
-	typ := val.Type()
-
-	if val.Kind() != reflect.Struct {
+	if !val.IsValid() || val.Kind() != reflect.Struct {
 		return result
 	}
 
+	typ := val.Type()
 	for i := 0; i < val.NumField(); i++ {
 		field := typ.Field(i)
-		if field.PkgPath != "" {
-			continue
+		tag := field.Tag.Get("json")
+		key := field.Name
+		if tag != "" && tag != "-" {
+			key = tag
 		}
-		fieldValue := val.Field(i).Interface()
-		result[field.Name] = fieldValue
+		result[key] = val.Field(i).Interface()
 	}
 
 	return result
