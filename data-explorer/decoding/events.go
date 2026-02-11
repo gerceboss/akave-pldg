@@ -4,17 +4,11 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 
 	"data-explorer/utils"
 )
-
-type EventSignature struct {
-	Name      string
-	EventSpec abi.Event
-}
 
 type DecodedEvent struct {
 	EventName       string                 `json:"event_name"`
@@ -26,7 +20,45 @@ type DecodedEvent struct {
 	Data            map[string]interface{} `json:"data"`
 }
 
-func decodeLog(contractABI abi.ABI, log types.Log, eventName string, out interface{}) (*DecodedEvent, error) {
+type eventMeta struct {
+	name    string
+	factory func() interface{}
+}
+
+var eventRegistry map[common.Hash]eventMeta
+var contractABI = utils.GetABI()
+
+// We should add this function in main.go at the startup
+func init() {
+	eventRegistry = make(map[common.Hash]eventMeta)
+
+	factories := map[string]func() interface{}{
+		"CreateBucket":        func() interface{} { return &utils.CreateBucketEvent{} },
+		"CreateFile":          func() interface{} { return &utils.CreateFileEvent{} },
+		"AddFileChunk":        func() interface{} { return &utils.AddFileChunkEvent{} },
+		"CommitFile":          func() interface{} { return &utils.CommitFileEvent{} },
+		"FillChunkBlock":      func() interface{} { return &utils.FillChunkBlockEvent{} },
+		"AddFileBlocks":       func() interface{} { return &utils.AddFileBlocksEvent{} },
+		"AddPeerBlock":        func() interface{} { return &utils.AddPeerBlockEvent{} },
+		"DeleteBucket":        func() interface{} { return &utils.DeleteBucketEvent{} },
+		"DeletePeerBlock":     func() interface{} { return &utils.DeletePeerBlockEvent{} },
+		"DeleteFile":          func() interface{} { return &utils.DeleteFileEvent{} },
+		"Initialized":         func() interface{} { return &utils.InitializedEvent{} },
+		"Upgraded":            func() interface{} { return &utils.UpgradedEvent{} },
+		"EIP712DomainChanged": func() interface{} { return &utils.EIP712DomainChangedEvent{} },
+	}
+
+	for name, event := range contractABI.Events {
+		if factory, ok := factories[name]; ok {
+			eventRegistry[event.ID] = eventMeta{
+				name:    name,
+				factory: factory,
+			}
+		}
+	}
+}
+
+func decodeLog(log types.Log, eventName string, out interface{}) (*DecodedEvent, error) {
 	if len(log.Topics) == 0 {
 		return nil, fmt.Errorf("log has no topics")
 	}
@@ -58,59 +90,21 @@ func DecodeAnyLog(log types.Log) (*DecodedEvent, error) {
 		return nil, fmt.Errorf("log has no topics")
 	}
 
-	contractABI := utils.GetABI()
 	topic0 := log.Topics[0]
-
-	var eventName string
-	var out interface{}
-
-	for name, event := range contractABI.Events {
-		if event.ID == topic0 {
-			eventName = name
-			break
-		}
+	meta, ok := eventRegistry[topic0]
+	if !ok {
+		return nil, fmt.Errorf("unknown or unsupported event signature: %s", topic0.Hex())
 	}
 
-	if eventName == "" {
-		return nil, fmt.Errorf("unknown event signature: %s", topic0.Hex())
-	}
-
-	switch eventName {
-	case "CreateBucket":
-		out = &utils.CreateBucketEvent{}
-	case "CreateFile":
-		out = &utils.CreateFileEvent{}
-	case "AddFileChunk":
-		out = &utils.AddFileChunkEvent{}
-	case "CommitFile":
-		out = &utils.CommitFileEvent{}
-	case "FillChunkBlock":
-		out = &utils.FillChunkBlockEvent{}
-	case "AddFileBlocks":
-		out = &utils.AddFileBlocksEvent{}
-	case "AddPeerBlock":
-		out = &utils.AddPeerBlockEvent{}
-	case "DeleteBucket":
-		out = &utils.DeleteBucketEvent{}
-	case "DeletePeerBlock":
-		out = &utils.DeletePeerBlockEvent{}
-	case "DeleteFile":
-		out = &utils.DeleteFileEvent{}
-	case "Initialized":
-		out = &utils.InitializedEvent{}
-	case "Upgraded":
-		out = &utils.UpgradedEvent{}
-	case "EIP712DomainChanged":
-		out = &utils.EIP712DomainChangedEvent{}
-	default:
-		return nil, fmt.Errorf("decoding logic not implemented for event: %s", eventName)
-	}
-
-	return decodeLog(contractABI, log, eventName, out)
+	return decodeLog(log, meta.name, meta.factory())
 }
 
 func structToMap(s interface{}) map[string]interface{} {
 	result := make(map[string]interface{})
+
+	if s == nil {
+		return result
+	}
 
 	val := reflect.Indirect(reflect.ValueOf(s))
 	typ := val.Type()
