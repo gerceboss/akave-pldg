@@ -1,15 +1,15 @@
-package utils 
+package utils
 
 import (
-	"testing"
 	"context"
-	"fmt"
-	"time"
-	"github.com/ethereum/go-ethereum/common"
 	"encoding/json"
+	"fmt"
+	"github.com/ethereum/go-ethereum/common"
+	"testing"
+	"time"
 )
 
-func GetLogs(t *testing.T , start int, end int) {
+func GetLogs(t *testing.T, start int, end int) {
 	ctx := context.Background()
 	// Example parameters for GetLogs
 	request_id := 1
@@ -20,7 +20,7 @@ func GetLogs(t *testing.T , start int, end int) {
 	if err != nil {
 		t.Fatalf("GetLogs failed: %v", err)
 	}
-    var un_logs []interface{}
+	var un_logs []interface{}
 	for _, log := range logs {
 		var un_log interface{}
 		un_res := json.Unmarshal(log, &un_log)
@@ -39,8 +39,8 @@ func TestMakeRequest(t *testing.T) {
 	if err != nil {
 		t.Fatalf("MakeRequest failed: %v", err)
 	}
-    var result interface{}
-    un_res := json.Unmarshal(response.Result, &result)
+	var result interface{}
+	un_res := json.Unmarshal(response.Result, &result)
 	if un_res != nil {
 		t.Fatalf("Failed to unmarshal response: %v", un_res)
 	}

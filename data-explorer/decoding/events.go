@@ -110,7 +110,7 @@ func structToMap(s interface{}) map[string]interface{} {
 		field := typ.Field(i)
 		tag := field.Tag.Get("json")
 		key := field.Name
-		if tag != "" && tag != "-" {
+		if tag != "" {
 			key = tag
 		}
 		result[key] = val.Field(i).Interface()
