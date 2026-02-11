@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 	"github.com/ethereum/go-ethereum/common"
-
+	"encoding/json"
 )
 
 func GetLogs(t *testing.T , start int, end int) {
@@ -15,14 +15,21 @@ func GetLogs(t *testing.T , start int, end int) {
 	request_id := 1
 	max_retry := 3
 	address := common.HexToAddress("0xbFAbD47bF901ca1341D128DDD06463AA476E970B")
-	topics := [][]string{
-		[]string{"0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"},
-	}
+	topics := [][]string{}
 	logs, err := rpc.GetLogs(ctx, request_id, max_retry, start, end, address, topics)
 	if err != nil {
 		t.Fatalf("GetLogs failed: %v", err)
-	}	
-	fmt.Printf("Logs: %v\n", logs)
+	}
+    var un_logs []interface{}
+	for _, log := range logs {
+		var un_log interface{}
+		un_res := json.Unmarshal(log, &un_log)
+		if un_res != nil {
+			t.Fatalf("Failed to unmarshal log: %v", un_res)
+		}
+		un_logs = append(un_logs, un_log)
+	}
+	fmt.Printf("Logs: %v\n", len(un_logs))
 }
 
 func TestMakeRequest(t *testing.T) {
@@ -32,8 +39,12 @@ func TestMakeRequest(t *testing.T) {
 	if err != nil {
 		t.Fatalf("MakeRequest failed: %v", err)
 	}
-
-	fmt.Printf("Response: %s\n", string(response.Result))
+    var result interface{}
+    un_res := json.Unmarshal(response.Result, &result)
+	if un_res != nil {
+		t.Fatalf("Failed to unmarshal response: %v", un_res)
+	}
+	fmt.Printf("Response: %v\n", result)
 }
 
 func TestGetLogs(t *testing.T) {
@@ -42,8 +53,8 @@ func TestGetLogs(t *testing.T) {
 		start int
 		end   int
 	}{
-		{"Test Case 1", 10000, 12000},
-		{"Test Case 2", 10000, 50000},
+		{"Test Case 1", 1273076, 1278076},
+		{"Test Case 2", 1258076, 1278076},
 	}
 
 	for _, c := range cases {

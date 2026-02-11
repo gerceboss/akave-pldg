@@ -7,8 +7,9 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"time"
 	"sync"
+	"time"
+
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -31,6 +32,7 @@ func (r *RpcUrl) MakeRequest(ctx context.Context, method string, request_id int,
 
 	for i := 0; i < max_retry; i++ {
 		req, err := http.NewRequestWithContext(ctx, "POST", r.GetUrl(), bytes.NewBuffer(jsonData))
+		if err != nil {
 			return nil, fmt.Errorf("failed to create HTTP request: %v", err)
 		}
 		req.Header.Set("Content-Type", "application/json")
@@ -89,7 +91,7 @@ func (r *RpcUrl) GetLogs(ctx context.Context, request_id int, max_retry int, sta
 	if err != nil {
 		if err.Error() == "block range too large" {
 			// retry with smaller range by splitting the range into two halves and retrying with each half until we get a successful response or we hit the minimum range threshold
-            mid := (start + end) / 2
+			mid := (start + end) / 2
 			if mid == start || mid == end {
 				return nil, fmt.Errorf("block range too large and cannot be split further: start=%d, end=%d", start, end)
 			}
@@ -100,7 +102,7 @@ func (r *RpcUrl) GetLogs(ctx context.Context, request_id int, max_retry int, sta
 				out   []json.RawMessage
 				first error
 			)
-				
+
 			wg.Add(2)
 
 			go func() {
