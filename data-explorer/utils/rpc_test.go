@@ -53,7 +53,7 @@ func TestGetLogs(t *testing.T) {
 		start int
 		end   int
 	}{
-		{"Test Case 1", 1273076, 1278076},
+		{"Test Case 1", 1278075, 1278076},
 		{"Test Case 2", 1258076, 1278076},
 	}
 

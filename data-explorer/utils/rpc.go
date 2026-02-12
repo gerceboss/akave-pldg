@@ -43,7 +43,7 @@ func (r *RpcUrl) MakeRequest(ctx context.Context, method string, request_id int,
 		}
 
 		if resp.StatusCode != http.StatusOK {
-			resp.Body.Close()
+			_ = resp.Body.Close()
 			return nil, fmt.Errorf("HTTP request returned non-200 status: %d", resp.StatusCode)
 		}
 
@@ -86,61 +86,64 @@ func (r *RpcUrl) GetLogs(ctx context.Context, request_id int, max_retry int, sta
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal params: %v", err)
 	}
-
-	resp, err := r.MakeRequest(ctx, "eth_getLogs", request_id, max_retry, body)
-	if err != nil {
-		if err.Error() == "block range too large" {
-			// retry with smaller range by splitting the range into two halves and retrying with each half until we get a successful response or we hit the minimum range threshold
-			mid := (start + end) / 2
-			if mid == start || mid == end {
-				return nil, fmt.Errorf("block range too large and cannot be split further: start=%d, end=%d", start, end)
-			}
-
-			var (
-				wg    sync.WaitGroup
-				mu    sync.Mutex
-				out   []json.RawMessage
-				first error
-			)
-
-			wg.Add(2)
-
-			go func() {
-				defer wg.Done()
-				left, err := r.GetLogs(ctx, request_id, max_retry, start, mid, address, topics)
-				if err != nil {
-					first = err
-					return
-				} else {
-					mu.Lock()
-					out = append(out, left...)
-					mu.Unlock()
-				}
-			}()
-
-			go func() {
-				defer wg.Done()
-				right, err := r.GetLogs(ctx, request_id, max_retry, mid+1, end, address, topics)
-				if err != nil {
-					first = err
-					return
-				} else {
-					mu.Lock()
-					out = append(out, right...)
-					mu.Unlock()
-				}
-			}()
-
-			wg.Wait()
-
-			if first != nil {
-				return nil, first
-			}
-
-			return out, nil
-		} else {
-			return nil, err
+	var resp *JSONRPCResponse
+	var retryErr error
+	var split = true
+	if end-start < 10000 {
+		resp, retryErr = r.MakeRequest(ctx, "eth_getLogs", request_id, max_retry, body)
+		if retryErr == nil {
+			split = false
 		}
+	}
+	if split {
+		// retry with smaller range by splitting the range into two halves and retrying with each half until we get a successful response or we hit the minimum range threshold
+		mid := (start + end) / 2
+		if mid == start || mid == end {
+			return nil, fmt.Errorf("block range too large and cannot be split further: start=%d, end=%d", start, end)
+		}
+
+		var (
+			wg    sync.WaitGroup
+			mu    sync.Mutex
+			out   []json.RawMessage
+			first error
+		)
+
+		wg.Add(2)
+
+		go func() {
+			defer wg.Done()
+			left, err := r.GetLogs(ctx, request_id, max_retry, start, mid, address, topics)
+			if err != nil {
+				first = err
+				return
+			} else {
+				mu.Lock()
+				out = append(out, left...)
+				mu.Unlock()
+			}
+		}()
+
+		go func() {
+			defer wg.Done()
+			right, err := r.GetLogs(ctx, request_id, max_retry, mid+1, end, address, topics)
+			if err != nil {
+				first = err
+				return
+			} else {
+				mu.Lock()
+				out = append(out, right...)
+				mu.Unlock()
+			}
+		}()
+
+		wg.Wait()
+
+		if first != nil {
+			return nil, first
+		}
+
+		return out, nil
 	}
 	result := []json.RawMessage{}
 	result = append(result, resp.Result)
