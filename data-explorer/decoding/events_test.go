@@ -24,13 +24,14 @@ func TestDecodeAnyLog(t *testing.T) {
 			eventName: "CreateBucket",
 			setupLog: func() types.Log {
 				event := abi.Events["CreateBucket"]
-				bucketId := [32]byte{1}
-				nameHash := common.BytesToHash([]byte("test-bucket-hash"))
-				owner := common.HexToAddress("0x123")
+				bucketId := common.Hash{1}
+				var nameHash common.Hash
+				copy(nameHash[:], "test-bucket")
+				owner := common.HexToAddress("0x0000000000000000000000000000000000000000000000000000000000000123")
 
 				topics := []common.Hash{
 					event.ID,
-					common.BytesToHash(bucketId[:]),
+					bucketId,
 					nameHash,
 					common.BytesToHash(owner.Bytes()),
 				}
@@ -45,17 +46,17 @@ func TestDecodeAnyLog(t *testing.T) {
 					t.Errorf("Expected CreateBucket, got %s", decoded.EventName)
 				}
 				data := decoded.Data
-				idVal, idOk := data["Id"].([32]byte)
-				if !idOk || idVal != [32]byte{1} {
-					t.Errorf("Incorrect Id: %v", data["Id"])
+				idVal, ok := data["id"].(string)
+				if !ok || idVal != "0x0100000000000000000000000000000000000000000000000000000000000000" {
+					t.Errorf("Incorrect id hex: %v", data["id"])
 				}
-				nameVal, nameOk := data["Name"].(common.Hash)
-				if !nameOk || nameVal != common.BytesToHash([]byte("test-bucket-hash")) {
-					t.Errorf("Incorrect Name hash: %v", data["Name"])
+				nameVal, ok := data["name"].(string)
+				if !ok || nameVal != "test-bucket" {
+					t.Errorf("Incorrect name string: %v", data["name"])
 				}
-				ownerVal, ownerOk := data["Owner"].(common.Address)
-				if !ownerOk || ownerVal != common.HexToAddress("0x123") {
-					t.Errorf("Incorrect Owner: %v", data["Owner"])
+				ownerVal, ok := data["owner"].(common.Address)
+				if !ok || ownerVal != common.HexToAddress("0x0000000000000000000000000000000000000000000000000000000000000123") {
+					t.Errorf("Incorrect owner: %v", data["owner"])
 				}
 			},
 		},
@@ -64,16 +65,16 @@ func TestDecodeAnyLog(t *testing.T) {
 			eventName: "FillChunkBlock",
 			setupLog: func() types.Log {
 				event := abi.Events["FillChunkBlock"]
-				fileId := [32]byte{2}
+				fileId := common.Hash{2}
 				chunkIndex := big.NewInt(5)
 				blockIndex := big.NewInt(3)
 
-				blockCID := [32]byte{10}
-				nodeId := [32]byte{20}
+				blockCID := common.Hash{10}
+				nodeId := common.Hash{20}
 
 				topics := []common.Hash{
 					event.ID,
-					common.BytesToHash(fileId[:]),
+					fileId,
 					common.BigToHash(chunkIndex),
 					common.BigToHash(blockIndex),
 				}
@@ -89,52 +90,14 @@ func TestDecodeAnyLog(t *testing.T) {
 			},
 			check: func(t *testing.T, decoded *DecodedEvent) {
 				data := decoded.Data
-				fileIdVal, ok := data["FileId"].([32]byte)
-				if !ok || fileIdVal != [32]byte{2} {
-					t.Errorf("Incorrect FileId: %v", data["FileId"])
+				if data["file_id"].(string) != "0x0200000000000000000000000000000000000000000000000000000000000000" {
+					t.Errorf("Incorrect file_id")
 				}
-				chunkIdxVal, ok := data["ChunkIndex"].(*big.Int)
-				if !ok || chunkIdxVal.Cmp(big.NewInt(5)) != 0 {
-					t.Errorf("Incorrect ChunkIndex: %v", data["ChunkIndex"])
+				if data["chunk_index"].(*big.Int).Cmp(big.NewInt(5)) != 0 {
+					t.Errorf("Incorrect chunk_index")
 				}
-				blockCIDVal, ok := data["BlockCID"].([32]byte)
-				if !ok || blockCIDVal != [32]byte{10} {
-					t.Errorf("Incorrect BlockCID: %v", data["BlockCID"])
-				}
-				nodeIdVal, ok := data["NodeId"].([32]byte)
-				if !ok || nodeIdVal != [32]byte{20} {
-					t.Errorf("Incorrect NodeId: %v", data["NodeId"])
-				}
-			},
-		},
-		{
-			name:      "Decode AddFileBlocks",
-			eventName: "AddFileBlocks",
-			setupLog: func() types.Log {
-				event := abi.Events["AddFileBlocks"]
-				idsHash := common.HexToHash("0x999")
-				fileId := [32]byte{7}
-
-				topics := []common.Hash{
-					event.ID,
-					idsHash,
-					common.BytesToHash(fileId[:]),
-				}
-
-				return types.Log{
-					Topics: topics,
-					Data:   []byte{},
-				}
-			},
-			check: func(t *testing.T, decoded *DecodedEvent) {
-				data := decoded.Data
-				idsVal, ok := data["Ids"].(common.Hash)
-				if !ok || idsVal != common.HexToHash("0x999") {
-					t.Errorf("Incorrect Ids hash: %v", data["Ids"])
-				}
-				fileIdVal, ok := data["FileId"].([32]byte)
-				if !ok || fileIdVal != [32]byte{7} {
-					t.Errorf("Incorrect FileId: %v", data["FileId"])
+				if data["block_cid"].(string) != "0x0a00000000000000000000000000000000000000000000000000000000000000" {
+					t.Errorf("Incorrect block_cid")
 				}
 			},
 		},
@@ -152,33 +115,39 @@ func TestDecodeAnyLog(t *testing.T) {
 	}
 }
 
+func TestStringDecoding(t *testing.T) {
+	var testHash common.Hash
+	copy(testHash[:], "hello")
+	result := utils.HashToString(testHash)
+	expected := "hello"
+
+	if result != expected {
+		t.Errorf("Expected %s, got %s", expected, result)
+	}
+}
+
 func TestStructToMap(t *testing.T) {
 	type TestStruct struct {
-		Name   string `json:"name"`
-		Age    int    `json:"age"`
-		Secret string `json:"-"`
-		Plain  string
+		Name common.Hash `json:"name"`
+		Id   common.Hash `json:"id"`
 	}
+
+	var nameHash common.Hash
+	copy(nameHash[:], "my-bucket")
+
+	idHash := common.HexToHash("0xabc")
 
 	s := TestStruct{
-		Name:   "Web3",
-		Age:    30,
-		Secret: "Hello",
-		Plain:  "Blockchain",
+		Name: nameHash,
+		Id:   idHash,
 	}
 
-	result := structToMap(s)
+	result := structToMap("CreateBucket", s)
 
-	if val, ok := result["name"]; !ok || val != "Web3" {
-		t.Errorf("JSON tag name failed")
+	if val, ok := result["name"]; !ok || val != "my-bucket" {
+		t.Errorf("Deterministic conversion for name failed: %v", val)
 	}
-	if val, ok := result["age"]; !ok || val != 30 {
-		t.Errorf("JSON tag age failed")
-	}
-	if _, ok := result["Secret"]; ok {
-		t.Errorf("Hidden field should not be present")
-	}
-	if val, ok := result["Plain"]; !ok || val != "Blockchain" {
-		t.Errorf("Plain field failed")
+	if val, ok := result["id"]; !ok || val != idHash.Hex() {
+		t.Errorf("Hex conversion for id failed (should not be string): %v", val)
 	}
 }

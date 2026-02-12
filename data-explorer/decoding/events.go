@@ -3,6 +3,7 @@ package decoding
 import (
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -73,7 +74,7 @@ func decodeLog(log types.Log, eventName string, out interface{}) (*DecodedEvent,
 		TxHash:          log.TxHash,
 		LogIndex:        log.Index,
 		Topics:          log.Topics,
-		Data:            structToMap(out),
+		Data:            structToMap(eventName, out),
 	}
 
 	return decoded, nil
@@ -93,9 +94,8 @@ func DecodeAnyLog(log types.Log) (*DecodedEvent, error) {
 	return decodeLog(log, meta.name, meta.factory())
 }
 
-func structToMap(s interface{}) map[string]interface{} {
+func structToMap(eventName string, s interface{}) map[string]interface{} {
 	result := make(map[string]interface{})
-
 	if s == nil {
 		return result
 	}
@@ -105,16 +105,39 @@ func structToMap(s interface{}) map[string]interface{} {
 		return result
 	}
 
+	event, ok := contractABI.Events[eventName]
+	if !ok {
+		return result
+	}
+
+	abiInputs := make(map[string]abi.Argument)
+	for _, arg := range event.Inputs {
+		abiInputs[arg.Name] = arg
+	}
+
 	typ := val.Type()
 	for i := 0; i < val.NumField(); i++ {
 		field := typ.Field(i)
-		tag := field.Tag.Get("json")
-		key := field.Name
-		if tag != "" {
-			key = tag
-		}
-		result[key] = val.Field(i).Interface()
-	}
+		fieldVal := val.Field(i)
 
+		key := strings.Split(field.Tag.Get("json"), ",")[0]
+
+		var abiArg abi.Argument
+		var found bool
+		if arg, ok := abiInputs[key]; ok {
+			abiArg = arg
+			found = true
+		}
+
+		if hash, ok := fieldVal.Interface().(common.Hash); ok {
+			if found && abiArg.Type.T == abi.StringTy {
+				result[key] = utils.HashToString(hash)
+			} else {
+				result[key] = hash.Hex()
+			}
+		} else {
+			result[key] = fieldVal.Interface()
+		}
+	}
 	return result
 }

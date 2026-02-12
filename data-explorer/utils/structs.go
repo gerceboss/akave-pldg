@@ -2,8 +2,9 @@ package utils
 
 import (
 	"encoding/json"
-	"github.com/ethereum/go-ethereum/common"
 	"math/big"
+
+	"github.com/ethereum/go-ethereum/common"
 )
 
 type RpcUrl struct {
@@ -44,75 +45,75 @@ type JSONRPCResponse struct {
 // Event structs
 
 type CreateBucketEvent struct {
-	Id    [32]byte
-	Name  common.Hash
-	Owner common.Address
+	Id    common.Hash    `json:"id"`
+	Name  common.Hash    `json:"name"`
+	Owner common.Address `json:"owner"`
 }
 
 type CreateFileEvent struct {
-	Id       [32]byte
-	BucketId [32]byte
-	Name     common.Hash
-	Owner    common.Address
+	Id       common.Hash    `json:"id"`
+	BucketId common.Hash    `json:"bucket_id"`
+	Name     common.Hash    `json:"name"`
+	Owner    common.Address `json:"owner"`
 }
 
 type AddFileChunkEvent struct {
-	Id       [32]byte
-	BucketId [32]byte
-	Name     common.Hash
-	Owner    common.Address
+	Id       common.Hash    `json:"id"`
+	BucketId common.Hash    `json:"bucket_id"`
+	Name     common.Hash    `json:"name"`
+	Owner    common.Address `json:"owner"`
 }
 
 type CommitFileEvent struct {
-	Id       [32]byte
-	BucketId [32]byte
-	Name     common.Hash
-	Owner    common.Address
+	Id       common.Hash    `json:"id"`
+	BucketId common.Hash    `json:"bucket_id"`
+	Name     common.Hash    `json:"name"`
+	Owner    common.Address `json:"owner"`
 }
 
 type FillChunkBlockEvent struct {
-	FileId     [32]byte
-	ChunkIndex *big.Int
-	BlockIndex *big.Int
-	BlockCID   [32]byte
-	NodeId     [32]byte
+	FileId     common.Hash `json:"file_id"`
+	ChunkIndex *big.Int    `json:"chunk_index"`
+	BlockIndex *big.Int    `json:"block_index"`
+	BlockCID   common.Hash `json:"block_cid"`
+	NodeId     common.Hash `json:"node_id"`
 }
 
 type AddFileBlocksEvent struct {
-	Ids    common.Hash
-	FileId [32]byte
+	Ids    common.Hash `json:"ids"`
+	FileId common.Hash `json:"file_id"`
 }
 
 type AddPeerBlockEvent struct {
-	BlockId [32]byte
-	PeerId  [32]byte
+	BlockId common.Hash `json:"block_id"`
+	PeerId  common.Hash `json:"peer_id"`
 }
 
 type DeleteBucketEvent struct {
-	Id    [32]byte
-	Name  common.Hash
-	Owner common.Address
+	Id    common.Hash    `json:"id"`
+	Name  common.Hash    `json:"name"`
+	Owner common.Address `json:"owner"`
 }
 
 type DeletePeerBlockEvent struct {
-	BlockId [32]byte
-	PeerId  [32]byte
+	BlockId common.Hash `json:"block_id"`
+	PeerId  common.Hash `json:"peer_id"`
 }
 
 type DeleteFileEvent struct {
-	Id       [32]byte
-	BucketId [32]byte
-	Name     common.Hash
-	Owner    common.Address
+	Id       common.Hash    `json:"id"`
+	BucketId common.Hash    `json:"bucket_id"`
+	Name     common.Hash    `json:"name"`
+	Owner    common.Address `json:"owner"`
 }
 
 type EIP712DomainChangedEvent struct {
 }
 
 type InitializedEvent struct {
-	Version uint64
+	Version uint64 `json:"version"`
 }
 
 type UpgradedEvent struct {
-	Implementation common.Address
+	Implementation common.Address `json:"implementation"`
 }

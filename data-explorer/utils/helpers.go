@@ -1,7 +1,10 @@
 package utils
 
 import (
+	"bytes"
+
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 )
 
@@ -28,4 +31,8 @@ func UnpackEvent(contractABI abi.ABI, out interface{}, name string, vLog types.L
 	}
 
 	return nil
+}
+
+func HashToString(h common.Hash) string {
+	return string(bytes.TrimRight(h[:], "\x00"))
 }
