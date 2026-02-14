@@ -19,5 +19,28 @@ func GetABI() abi.ABI {
 	return parsedABI
 }
 
+// Storage contract events we index (excluding EIP712DomainChanged, Initialized, Upgraded)
+var indexedEventNames = []string{
+	"CreateBucket", "CreateFile", "AddFileChunk", "CommitFile",
+	"FillChunkBlock", "AddFileBlocks", "AddPeerBlock", "DeleteBucket",
+	"DeletePeerBlock", "DeleteFile",
+}
+
+// EventTopicFilters returns topic filters for eth_getLogs.
+// topics[0] = array of event signature hashes (topic0) to match any of the indexed events.
+func EventTopicFilters() [][]string {
+	parsedABI := GetABI()
+	topic0 := make([]string, 0, len(indexedEventNames))
+	for _, name := range indexedEventNames {
+		if e, ok := parsedABI.Events[name]; ok {
+			topic0 = append(topic0, e.ID.Hex())
+		}
+	}
+	return [][]string{topic0}
+}
+
+// StorageContractAddress is the default contract address for indexing.
+const StorageContractAddress = "0xbFAbD47bF901ca1341D128DDD06463AA476E970B"
+
 var akave_rpc string = "https://c6-us.akave.ai/ext/bc/56g16Hr1SHQRzdM8JLm3GKYv7APVHY8T2TyeZLvDVzCaTRS7W/rpc"
 var rpc = NewRpcUrl(akave_rpc)
