@@ -4,9 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/ethereum/go-ethereum/common"
 	"testing"
 	"time"
+
+	"github.com/ethereum/go-ethereum/common"
 )
 
 func GetLogs(t *testing.T, start int, end int) {

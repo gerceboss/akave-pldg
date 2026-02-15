@@ -11,7 +11,10 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 )
+
+var errBlockRangeTooLarge = errors.New("block range too large")
 
 // We are performing manual rpc calls instead of using the package so as to efficiently handle eth_getLogs block range errors
 // basically we will map error range to messages to decode the error and if the error was rate limit exceed we retry with full range but if the error was
@@ -64,7 +67,7 @@ func (r *RpcUrl) MakeRequest(ctx context.Context, method string, request_id int,
 				return nil, fmt.Errorf("JSON-RPC error: %v", result.Error.Message)
 			} else {
 				// block range too large error, we will handle it in the calling function by splitting the range and retrying with smaller ranges
-				return nil, errors.New("block range too large")
+				return nil, errBlockRangeTooLarge
 			}
 		}
 		return &result, nil
@@ -86,16 +89,19 @@ func (r *RpcUrl) GetLogs(ctx context.Context, request_id int, max_retry int, sta
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal params: %v", err)
 	}
-	var resp *JSONRPCResponse
-	var retryErr error
-	var split = true
-	if end-start < 10000 {
-		resp, retryErr = r.MakeRequest(ctx, "eth_getLogs", request_id, max_retry, body)
-		if retryErr == nil {
-			split = false
+	resp, retryErr := r.MakeRequest(ctx, "eth_getLogs", request_id, max_retry, body)
+	if retryErr == nil {
+		var logs []json.RawMessage
+		if err := json.Unmarshal(resp.Result, &logs); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal eth_getLogs result: %w", err)
 		}
+		return logs, nil
 	}
-	if split {
+	// Only split on "block range too large"; propagate other errors
+	if !errors.Is(retryErr, errBlockRangeTooLarge) {
+		return nil, retryErr
+	}
+	{
 		// retry with smaller range by splitting the range into two halves and retrying with each half until we get a successful response or we hit the minimum range threshold
 		mid := (start + end) / 2
 		if mid == start || mid == end {
@@ -145,7 +151,34 @@ func (r *RpcUrl) GetLogs(ctx context.Context, request_id int, max_retry int, sta
 
 		return out, nil
 	}
-	result := []json.RawMessage{}
-	result = append(result, resp.Result)
-	return result, nil
+}
+
+// RawLogToTypesLog converts a single eth_getLogs JSON object into types.Log.
+func RawLogToTypesLog(raw json.RawMessage) (types.Log, error) {
+	var log types.Log
+	if err := json.Unmarshal(raw, &log); err != nil {
+		return types.Log{}, fmt.Errorf("failed to unmarshal log: %w", err)
+	}
+	return log, nil
+}
+
+// GetBlockNumber returns the latest block number from the chain.
+func (r *RpcUrl) GetBlockNumber(ctx context.Context, requestID int, maxRetry int) (uint64, error) {
+	body, err := json.Marshal([]interface{}{})
+	if err != nil {
+		return 0, fmt.Errorf("failed to marshal params: %w", err)
+	}
+	resp, err := r.MakeRequest(ctx, "eth_blockNumber", requestID, maxRetry, body)
+	if err != nil {
+		return 0, err
+	}
+	var hexBlock string
+	if err := json.Unmarshal(resp.Result, &hexBlock); err != nil {
+		return 0, fmt.Errorf("failed to unmarshal block number: %w", err)
+	}
+	var blockNum uint64
+	if _, err := fmt.Sscanf(hexBlock, "0x%x", &blockNum); err != nil {
+		return 0, fmt.Errorf("invalid block number hex %q: %w", hexBlock, err)
+	}
+	return blockNum, nil
 }
