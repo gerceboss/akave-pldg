@@ -183,11 +183,11 @@ type FillChunkBlockArgs struct {
 }
 
 type FillChunkBlockTxParams struct {
-	Args FillChunkBlockArgs `json:"args"`
+	Args FillChunkBlockArgs `json:"fillChunkBlockArgs"`
 }
 
 type FillChunkBlocksTxParams struct {
-	Args []FillChunkBlockArgs `json:"args"`
+	Args []FillChunkBlockArgs `json:"fillChunkBlocksArgs"`
 }
 
 type InitializeTxParams struct {
