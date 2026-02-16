@@ -4,36 +4,38 @@ import (
 	"context"
 	"data-explorer/decoding"
 	"data-explorer/utils"
+	"encoding/json"
 	"fmt"
-	"math/big"
 
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 )
 
 var contractAddress common.Address = utils.GetAddress()
 
 func FetchAndDecode(client *ethclient.Client, fromBlock, toBlock int64) ([]*decoding.DecodedEvent, error) {
-	query := ethereum.FilterQuery{
-		FromBlock: big.NewInt(fromBlock),
-		ToBlock:   big.NewInt(toBlock),
-		Addresses: []common.Address{contractAddress},
-	}
-
-	logs, err := client.FilterLogs(context.Background(), query)
+	rpc := utils.NewRpcUrl(utils.GetRPCURL())
+	rawChunks, err := rpc.GetLogs(context.Background(), 1, 3, int(fromBlock), int(toBlock), contractAddress, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch logs: %v", err)
+		return nil, fmt.Errorf("failed to fetch logs via RPC: %v", err)
 	}
 
 	var decodedEvents []*decoding.DecodedEvent
-	for _, log := range logs {
-		decoded, err := decoding.DecodeAnyLog(log)
-		if err != nil {
-			fmt.Printf("failed to decode log at block %d: %v\n", log.BlockNumber, err)
-			continue
+	for _, chunk := range rawChunks {
+		var logs []types.Log
+		if err := json.Unmarshal(chunk, &logs); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal log chunk: %v", err)
 		}
-		decodedEvents = append(decodedEvents, decoded)
+
+		for _, log := range logs {
+			decoded, err := decoding.DecodeAnyLog(log)
+			if err != nil {
+				fmt.Printf("failed to decode log at block %d: %v\n", log.BlockNumber, err)
+				continue
+			}
+			decodedEvents = append(decodedEvents, decoded)
+		}
 	}
 
 	return decodedEvents, nil
