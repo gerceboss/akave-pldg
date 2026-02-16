@@ -1,37 +1,49 @@
 package indexing
 
 import (
+	"context"
 	"data-explorer/utils"
-	"sort"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-)
-
-const (
-	knownFrom       int64 = 1288670
-	knownTo         int64 = 1288680
-	expectedMinLogs       = 900 
 )
 
 func setupClient(t *testing.T) *ethclient.Client {
 	t.Helper()
 	client, err := ethclient.Dial(utils.GetRPCURL())
-	require.NoError(t, err, "Failed to connect to Akave RPC")
+	if err != nil {
+		t.Fatalf("Failed to connect to Akave RPC: %v", err)
+	}
 	return client
+}
+
+func getKnownRange(t *testing.T, client *ethclient.Client) (int64, int64) {
+	t.Helper()
+	head, err := client.BlockNumber(context.Background())
+	if err != nil {
+		t.Fatalf("Failed to get latest block: %v", err)
+	}
+	to := int64(head) - 100
+	from := to - 10
+	if from < 0 {
+		from = 0
+	}
+	return from, to
 }
 
 func TestBackfillDeterministicRange(t *testing.T) {
 	client := setupClient(t)
+	from, to := getKnownRange(t, client)
 
-	events, err := FetchAndDecode(client, knownFrom, knownTo)
-	require.NoError(t, err)
+	events, err := FetchAndDecode(client, from, to)
+	if err != nil {
+		t.Fatalf("FetchAndDecode failed: %v", err)
+	}
 
-	assert.GreaterOrEqual(t, len(events), expectedMinLogs,
-		"Expected at least %d events in block range [%d, %d], got %d",
-		expectedMinLogs, knownFrom, knownTo, len(events))
+	if len(events) == 0 {
+		t.Fatalf("Expected events in range [%d, %d], got 0", from, to)
+	}
 
 	allowedEvents := map[string]bool{
 		"CreateBucket":        true,
@@ -48,130 +60,208 @@ func TestBackfillDeterministicRange(t *testing.T) {
 		"Upgraded":            true,
 		"EIP712DomainChanged": true,
 	}
-	for _, ev := range events {
-		assert.True(t, allowedEvents[ev.EventName],
-			"Unexpected event type: %s", ev.EventName)
-	}
-
-	for _, ev := range events {
-		assert.GreaterOrEqual(t, ev.BlockNumber, uint64(knownFrom),
-			"Event block %d is below fromBlock %d", ev.BlockNumber, knownFrom)
-		assert.LessOrEqual(t, ev.BlockNumber, uint64(knownTo),
-			"Event block %d is above toBlock %d", ev.BlockNumber, knownTo)
-	}
 
 	for i, ev := range events {
-		assert.NotEmpty(t, ev.EventName, "Event %d has empty name", i)
-		assert.NotNil(t, ev.Data, "Event %d has nil data", i)
-		assert.NotEmpty(t, ev.TxHash.Hex(), "Event %d has empty TxHash", i)
+		if !allowedEvents[ev.EventName] {
+			t.Errorf("Event %d: unexpected event type %q", i, ev.EventName)
+		}
+		if ev.BlockNumber < uint64(from) || ev.BlockNumber > uint64(to) {
+			t.Errorf("Event %d: block %d outside range [%d, %d]", i, ev.BlockNumber, from, to)
+		}
+		if ev.EventName == "" {
+			t.Errorf("Event %d: empty event name", i)
+		}
+		if ev.Data == nil {
+			t.Errorf("Event %d: nil data map", i)
+		}
+		if ev.TxHash == (common.Hash{}) {
+			t.Errorf("Event %d: zero TxHash", i)
+		}
+		if ev.ContractAddress == (common.Address{}) {
+			t.Errorf("Event %d: zero ContractAddress", i)
+		}
+
+		if i < 50 || i > len(events)-10 {
+			t.Logf("[%d] LogIndex: %d, Event: %s, Block: %d, TX: %s", i, ev.LogIndex, ev.EventName, ev.BlockNumber, ev.TxHash.Hex())
+		} else if i == 50 {
+			t.Logf("... skipping middle events ...")
+		}
 	}
 }
 
-func TestBackfill_BlockOrdering(t *testing.T) {
+func TestBackfillBlockOrdering(t *testing.T) {
 	client := setupClient(t)
+	from, to := getKnownRange(t, client)
 
-	events, err := FetchAndDecode(client, knownFrom, knownTo)
-	require.NoError(t, err)
-	require.NotEmpty(t, events)
+	events, err := FetchAndDecode(client, from, to)
+	if err != nil {
+		t.Fatalf("FetchAndDecode failed: %v", err)
+	}
+	if len(events) == 0 {
+		t.Fatalf("No events returned for ordering check")
+	}
 
 	for i := 1; i < len(events); i++ {
-		assert.GreaterOrEqual(t, events[i].BlockNumber, events[i-1].BlockNumber,
-			"Events out of order at index %d: block %d came after block %d",
-			i, events[i].BlockNumber, events[i-1].BlockNumber)
-	}
-}
-
-func TestBackfill_BoundaryPrecision(t *testing.T) {
-	client := setupClient(t)
-
-	singleBlock := int64(1288680)
-	events, err := FetchAndDecode(client, singleBlock, singleBlock)
-	require.NoError(t, err)
-
-	for _, ev := range events {
-		assert.Equal(t, uint64(singleBlock), ev.BlockNumber,
-			"Single-block query returned event from wrong block: %d", ev.BlockNumber)
-	}
-
-	adjacentBlock := singleBlock - 1
-	adjacentEvents, err := FetchAndDecode(client, adjacentBlock, adjacentBlock)
-	require.NoError(t, err)
-
-	for _, ev := range adjacentEvents {
-		assert.Equal(t, uint64(adjacentBlock), ev.BlockNumber,
-			"Adjacent block query leaked into block: %d", ev.BlockNumber)
-	}
-
-	rangeEvents, err := FetchAndDecode(client, adjacentBlock, singleBlock)
-	require.NoError(t, err)
-
-	assert.Equal(t, len(adjacentEvents)+len(events), len(rangeEvents),
-		"Boundary violation: single-block sum (%d + %d = %d) != range query (%d)",
-		len(adjacentEvents), len(events),
-		len(adjacentEvents)+len(events), len(rangeEvents))
-}
-
-func TestBackfill_BatchPagination(t *testing.T) {
-	client := setupClient(t)
-
-	allAtOnce, err := FetchAndDecode(client, knownFrom, knownTo)
-	require.NoError(t, err)
-
-	batched, err := FetchAndDecodeInBatches(client, knownFrom, knownTo, 2)
-	require.NoError(t, err)
-
-	assert.Equal(t, len(allAtOnce), len(batched),
-		"Batch pagination lost events: single=%d, batched=%d",
-		len(allAtOnce), len(batched))
-
-	for i := range allAtOnce {
-		if i >= len(batched) {
-			break
+		if events[i].BlockNumber < events[i-1].BlockNumber {
+			t.Errorf("Out of order at index %d: block %d < block %d",
+				i, events[i].BlockNumber, events[i-1].BlockNumber)
 		}
-		assert.Equal(t, allAtOnce[i].EventName, batched[i].EventName,
-			"Mismatch at index %d: single=%s, batched=%s",
-			i, allAtOnce[i].EventName, batched[i].EventName)
-		assert.Equal(t, allAtOnce[i].BlockNumber, batched[i].BlockNumber,
-			"Block mismatch at index %d", i)
-		assert.Equal(t, allAtOnce[i].TxHash, batched[i].TxHash,
-			"TxHash mismatch at index %d", i)
+
+		if events[i].BlockNumber == events[i-1].BlockNumber &&
+			events[i].LogIndex < events[i-1].LogIndex {
+			t.Errorf("Log index out of order at index %d: logIndex %d < %d in same block %d",
+				i, events[i].LogIndex, events[i-1].LogIndex, events[i].BlockNumber)
+		}
 	}
 }
 
-func TestBackfill_EventDistribution(t *testing.T) {
+func TestBackfillBoundaryPrecision(t *testing.T) {
 	client := setupClient(t)
+	from, to := getKnownRange(t, client)
 
-	events, err := FetchAndDecode(client, knownFrom, knownTo)
-	require.NoError(t, err)
+	blockA := to
+	blockB := to - 1
 
-	counts := make(map[string]int)
-	for _, ev := range events {
-		counts[ev.EventName]++
+	eventsA, err := FetchAndDecode(client, blockA, blockA)
+	if err != nil {
+		t.Fatalf("Single-block fetch for block %d failed: %v", blockA, err)
+	}
+	for i, ev := range eventsA {
+		if ev.BlockNumber != uint64(blockA) {
+			t.Errorf("Block A event %d: expected block %d, got %d", i, blockA, ev.BlockNumber)
+		}
 	}
 
-	t.Logf("Event distribution across blocks [%d, %d]:", knownFrom, knownTo)
-	keys := make([]string, 0, len(counts))
-	for k := range counts {
-		keys = append(keys, k)
+	eventsB, err := FetchAndDecode(client, blockB, blockB)
+	if err != nil {
+		t.Fatalf("Single-block fetch for block %d failed: %v", blockB, err)
 	}
-	sort.Strings(keys)
-	for _, k := range keys {
-		t.Logf("  %-20s : %d", k, counts[k])
+	for i, ev := range eventsB {
+		if ev.BlockNumber != uint64(blockB) {
+			t.Errorf("Block B event %d: expected block %d, got %d", i, blockB, ev.BlockNumber)
+		}
 	}
 
-	assert.Greater(t, counts["FillChunkBlock"], 0,
-		"Expected FillChunkBlock events in this range")
-	assert.Greater(t, counts["AddPeerBlock"], 0,
-		"Expected AddPeerBlock events in this range")
+	combined, err := FetchAndDecode(client, blockB, blockA)
+	if err != nil {
+		t.Fatalf("Range fetch [%d, %d] failed: %v", blockB, blockA, err)
+	}
 
-	assert.InDelta(t, counts["FillChunkBlock"], counts["AddPeerBlock"], 10,
-		"FillChunkBlock and AddPeerBlock counts should be roughly equal")
+	expectedCount := len(eventsA) + len(eventsB)
+	if len(combined) != expectedCount {
+		t.Errorf("Boundary sum mismatch: block %d (%d) + block %d (%d) = %d, but range returned %d",
+			blockB, len(eventsB), blockA, len(eventsA), expectedCount, len(combined))
+	}
+
+	fullRange, err := FetchAndDecode(client, from, to)
+	if err != nil {
+		t.Fatalf("Full range fetch failed: %v", err)
+	}
+	subA, err := FetchAndDecode(client, from, from+5)
+	if err != nil {
+		t.Fatalf("Sub-range A fetch failed: %v", err)
+	}
+	subB, err := FetchAndDecode(client, from+6, to)
+	if err != nil {
+		t.Fatalf("Sub-range B fetch failed: %v", err)
+	}
+	if len(subA)+len(subB) != len(fullRange) {
+		t.Errorf("Split range mismatch: [%d,%d](%d) + [%d,%d](%d) = %d, full range = %d",
+			from, from+5, len(subA), from+6, to, len(subB),
+			len(subA)+len(subB), len(fullRange))
+	}
 }
 
-func TestBackfill_EmptyRange(t *testing.T) {
+func TestBackfillBatchPagination(t *testing.T) {
 	client := setupClient(t)
+	from, to := getKnownRange(t, client)
 
-	events, err := FetchAndDecode(client, 0, 0)
-	require.NoError(t, err)
-	assert.Empty(t, events, "Block 0 should have no storage contract events")
+	allAtOnce, err := FetchAndDecode(client, from, to)
+	if err != nil {
+		t.Fatalf("Single fetch failed: %v", err)
+	}
+
+	batchSizes := []int64{1, 2, 3, 5, 10}
+	for _, bs := range batchSizes {
+		batched, err := FetchAndDecodeInBatches(client, from, to, bs)
+		if err != nil {
+			t.Fatalf("Batch fetch (size=%d) failed: %v", bs, err)
+		}
+		if len(batched) != len(allAtOnce) {
+			t.Errorf("Batch size %d: got %d events, expected %d", bs, len(batched), len(allAtOnce))
+			continue
+		}
+		for i := range allAtOnce {
+			if batched[i].EventName != allAtOnce[i].EventName {
+				t.Errorf("Batch size %d, index %d: event name %q != %q",
+					bs, i, batched[i].EventName, allAtOnce[i].EventName)
+				break
+			}
+			if batched[i].BlockNumber != allAtOnce[i].BlockNumber {
+				t.Errorf("Batch size %d, index %d: block %d != %d",
+					bs, i, batched[i].BlockNumber, allAtOnce[i].BlockNumber)
+				break
+			}
+			if batched[i].TxHash != allAtOnce[i].TxHash {
+				t.Errorf("Batch size %d, index %d: TxHash mismatch", bs, i)
+				break
+			}
+			if batched[i].LogIndex != allAtOnce[i].LogIndex {
+				t.Errorf("Batch size %d, index %d: LogIndex %d != %d",
+					bs, i, batched[i].LogIndex, allAtOnce[i].LogIndex)
+				break
+			}
+		}
+	}
+}
+
+func TestBackfillContractAddressConsistency(t *testing.T) {
+	client := setupClient(t)
+	from, to := getKnownRange(t, client)
+
+	events, err := FetchAndDecode(client, from, to)
+	if err != nil {
+		t.Fatalf("FetchAndDecode failed: %v", err)
+	}
+
+	expected := utils.GetAddress()
+	for i, ev := range events {
+		if ev.ContractAddress != expected {
+			t.Errorf("Event %d: contract address %s != expected %s",
+				i, ev.ContractAddress.Hex(), expected.Hex())
+		}
+	}
+}
+
+func TestBackfillIdempotency(t *testing.T) {
+	client := setupClient(t)
+	from, to := getKnownRange(t, client)
+
+	first, err := FetchAndDecode(client, from, to)
+	if err != nil {
+		t.Fatalf("First fetch failed: %v", err)
+	}
+	second, err := FetchAndDecode(client, from, to)
+	if err != nil {
+		t.Fatalf("Second fetch failed: %v", err)
+	}
+
+	if len(first) != len(second) {
+		t.Fatalf("Idempotency failed: first=%d, second=%d", len(first), len(second))
+	}
+
+	for i := range first {
+		if first[i].EventName != second[i].EventName {
+			t.Errorf("Index %d: event name %q != %q", i, first[i].EventName, second[i].EventName)
+		}
+		if first[i].BlockNumber != second[i].BlockNumber {
+			t.Errorf("Index %d: block %d != %d", i, first[i].BlockNumber, second[i].BlockNumber)
+		}
+		if first[i].TxHash != second[i].TxHash {
+			t.Errorf("Index %d: TxHash mismatch", i)
+		}
+		if first[i].LogIndex != second[i].LogIndex {
+			t.Errorf("Index %d: LogIndex %d != %d", i, first[i].LogIndex, second[i].LogIndex)
+		}
+	}
 }

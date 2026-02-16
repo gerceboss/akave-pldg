@@ -30,7 +30,7 @@ func FetchAndDecode(client *ethclient.Client, fromBlock, toBlock int64) ([]*deco
 	for _, log := range logs {
 		decoded, err := decoding.DecodeAnyLog(log)
 		if err != nil {
-			fmt.Errorf("failed to decode log at block %d: %v", log.BlockNumber, err)
+			fmt.Printf("failed to decode log at block %d: %v\n", log.BlockNumber, err)
 			continue
 		}
 		decodedEvents = append(decodedEvents, decoded)
