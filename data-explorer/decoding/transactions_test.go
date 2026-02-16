@@ -62,8 +62,12 @@ func TestDecodeTransaction(t *testing.T) {
 				if decoded.To != contractAddress {
 					t.Errorf("expected to %s, got %s", contractAddress.Hex(), decoded.To.Hex())
 				}
-				if decoded.Params["bucketName"] != "test-bucket" {
-					t.Errorf("expected bucketName test-bucket, got %v", decoded.Params["bucketName"])
+				params, ok := decoded.Params.(utils.CreateBucketTxParams)
+				if !ok {
+					t.Fatalf("expected CreateBucketTxParams, got %T", decoded.Params)
+				}
+				if params.BucketName != "test-bucket" {
+					t.Errorf("expected bucketName test-bucket, got %v", params.BucketName)
 				}
 			},
 		},
@@ -111,7 +115,7 @@ func TestDecodeTransaction(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tx := tt.setupTx()
-			decoded, err := DecodeTransaction(tx, &contractABI)
+			decoded, err := DecodeTransaction(tx)
 			if (err != nil) != tt.expectErr {
 				t.Errorf("expected error: %v, got: %v", tt.expectErr, err)
 			}
