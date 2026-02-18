@@ -140,3 +140,91 @@ type EventMeta struct {
 	Name    string
 	Factory func() interface{}
 }
+// Transaction Structs
+
+type AddFileChunkTxParams struct {
+	ChunkCID         []byte        `json:"chunkCID"`
+	BucketId         common.Hash   `json:"bucketId"`
+	FileName         string        `json:"fileName"`
+	EncodedChunkSize *big.Int      `json:"encodedChunkSize"`
+	Cids             []common.Hash `json:"cids"`
+	ChunkBlocksSizes []*big.Int    `json:"chunkBlocksSizes"`
+	ChunkIndex       *big.Int      `json:"chunkIndex"`
+}
+
+type AddFileChunksTxParams struct {
+	Cids               [][]byte        `json:"cids"`
+	BucketId           common.Hash     `json:"bucketId"`
+	FileName           string          `json:"fileName"`
+	EncodedChunkSizes  []*big.Int      `json:"encodedChunkSizes"`
+	ChunkBlocksCIDs    [][]common.Hash `json:"chunkBlocksCIDs"`
+	ChunkBlockSizes    [][]*big.Int    `json:"chunkBlockSizes"`
+	StartingChunkIndex *big.Int        `json:"startingChunkIndex"`
+}
+
+type CommitFileTxParams struct {
+	BucketId        common.Hash `json:"bucketId"`
+	FileName        string      `json:"fileName"`
+	EncodedFileSize *big.Int    `json:"encodedFileSize"`
+	ActualSize      *big.Int    `json:"actualSize"`
+	FileCID         []byte      `json:"fileCID"`
+}
+
+type CreateBucketTxParams struct {
+	BucketName string `json:"bucketName"`
+}
+
+type CreateFileTxParams struct {
+	BucketId common.Hash `json:"bucketId"`
+	FileName string      `json:"fileName"`
+}
+
+type DeleteBucketTxParams struct {
+	Id         common.Hash `json:"id"`
+	BucketName string      `json:"bucketName"`
+	Index      *big.Int    `json:"index"`
+}
+
+type DeleteFileTxParams struct {
+	FileID   common.Hash `json:"fileID"`
+	BucketId common.Hash `json:"bucketId"`
+	FileName string      `json:"fileName"`
+	Index    *big.Int    `json:"index"`
+}
+
+type FillChunkBlockArgs struct {
+	BlockCID   common.Hash `json:"blockCID"`
+	NodeId     common.Hash `json:"nodeId"`
+	BucketId   common.Hash `json:"bucketId"`
+	ChunkIndex *big.Int    `json:"chunkIndex"`
+	Nonce      *big.Int    `json:"nonce"`
+	BlockIndex uint8       `json:"blockIndex"`
+	FileName   string      `json:"fileName"`
+	Signature  []byte      `json:"signature"`
+	Deadline   *big.Int    `json:"deadline"`
+}
+
+type FillChunkBlockTxParams struct {
+	Args FillChunkBlockArgs `json:"fillChunkBlockArgs"`
+}
+
+type FillChunkBlocksTxParams struct {
+	Args []FillChunkBlockArgs `json:"fillChunkBlocksArgs"`
+}
+
+type InitializeTxParams struct {
+	TokenAddress common.Address `json:"tokenAddress"`
+}
+
+type SetAccessManagerTxParams struct {
+	AccessManagerAddress common.Address `json:"accessManagerAddress"`
+}
+
+type SetAuthorityTxParams struct {
+	UpgradeAuthority common.Address `json:"_upgradeAuthority"`
+}
+
+type UpgradeToAndCallTxParams struct {
+	NewImplementation common.Address `json:"newImplementation"`
+	Data              []byte         `json:"data"`
+}
