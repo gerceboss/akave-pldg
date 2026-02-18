@@ -5,6 +5,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	"time"
 )
 
 type RpcUrl struct {
@@ -19,6 +20,13 @@ func NewRpcUrl(url string) *RpcUrl {
 	return &RpcUrl{
 		Url: url,
 	}
+}
+
+type Block struct {
+	Num        int64
+	Hash       []byte
+	ParentHash []byte
+	Timestamp  time.Time
 }
 
 type JSONRPCRequest struct {
@@ -118,6 +126,20 @@ type UpgradedEvent struct {
 	Implementation common.Address `json:"implementation"`
 }
 
+type DecodedEvent struct {
+	EventName       string                 `json:"event_name"`
+	ContractAddress common.Address         `json:"contract_address"`
+	BlockNumber     uint64                 `json:"block_number"`
+	TxHash          common.Hash            `json:"tx_hash"`
+	LogIndex        uint                   `json:"log_index"`
+	Topics          []common.Hash          `json:"topics"`
+	Data            map[string]interface{} `json:"data"`
+}
+
+type EventMeta struct {
+	Name    string
+	Factory func() interface{}
+}
 // Transaction Structs
 
 type AddFileChunkTxParams struct {
