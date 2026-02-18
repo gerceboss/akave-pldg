@@ -8,32 +8,16 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-
 	"data-explorer/utils"
 )
 
-type DecodedEvent struct {
-	EventName       string                 `json:"event_name"`
-	ContractAddress common.Address         `json:"contract_address"`
-	BlockNumber     uint64                 `json:"block_number"`
-	TxHash          common.Hash            `json:"tx_hash"`
-	LogIndex        uint                   `json:"log_index"`
-	Topics          []common.Hash          `json:"topics"`
-	Data            map[string]interface{} `json:"data"`
-}
-
-type eventMeta struct {
-	name    string
-	factory func() interface{}
-}
-
 var (
-	eventRegistry map[common.Hash]eventMeta
+	eventRegistry map[common.Hash]utils.EventMeta
 	contractABI   abi.ABI
 )
 
 func init() {
-	eventRegistry = make(map[common.Hash]eventMeta)
+	eventRegistry = make(map[common.Hash]utils.EventMeta)
 	contractABI = utils.GetABI()
 
 	factories := map[string]func() interface{}{
@@ -54,20 +38,20 @@ func init() {
 
 	for name, event := range contractABI.Events {
 		if factory, ok := factories[name]; ok {
-			eventRegistry[event.ID] = eventMeta{
-				name:    name,
-				factory: factory,
+			eventRegistry[event.ID] = utils.EventMeta{
+				Name:    name,
+				Factory: factory,
 			}
 		}
 	}
 }
 
-func decodeLog(log types.Log, eventName string, out interface{}) (*DecodedEvent, error) {
+func decodeLog(log types.Log, eventName string, out interface{}) (*utils.DecodedEvent, error) {
 	if err := utils.UnpackEvent(contractABI, out, eventName, log); err != nil {
 		return nil, fmt.Errorf("failed to unpack event %s: %w", eventName, err)
 	}
 
-	decoded := &DecodedEvent{
+	decoded := &utils.DecodedEvent{
 		EventName:       eventName,
 		ContractAddress: log.Address,
 		BlockNumber:     log.BlockNumber,
@@ -80,7 +64,7 @@ func decodeLog(log types.Log, eventName string, out interface{}) (*DecodedEvent,
 	return decoded, nil
 }
 
-func DecodeAnyLog(log types.Log) (*DecodedEvent, error) {
+func DecodeAnyLog(log types.Log) (*utils.DecodedEvent, error) {
 	if len(log.Topics) == 0 {
 		return nil, fmt.Errorf("log has no topics")
 	}
@@ -91,7 +75,7 @@ func DecodeAnyLog(log types.Log) (*DecodedEvent, error) {
 		return nil, fmt.Errorf("unknown event signature: %s", topic.Hex())
 	}
 
-	return decodeLog(log, meta.name, meta.factory())
+	return decodeLog(log, meta.Name, meta.Factory())
 }
 
 func structToMap(eventName string, s interface{}) map[string]interface{} {

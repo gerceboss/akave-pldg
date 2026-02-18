@@ -5,8 +5,7 @@ import (
 	"testing"
 
 	"data-explorer/config"
-	"data-explorer/decoding"
-
+    "data-explorer/utils"
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -15,11 +14,11 @@ func TestNoOpHandler(t *testing.T) {
 
 	tests := []struct {
 		name string
-		ev   *decoding.DecodedEvent
+		ev   *utils.DecodedEvent
 	}{
 		{"nil event", nil},
-		{"empty event", &decoding.DecodedEvent{}},
-		{"CreateBucket event", &decoding.DecodedEvent{
+		{"empty event", &utils.DecodedEvent{}},
+		{"CreateBucket event", &utils.DecodedEvent{
 			EventName:       "CreateBucket",
 			ContractAddress: common.HexToAddress("0xbFAbD47bF901ca1341D128DDD06463AA476E970B"),
 			BlockNumber:     1000,
@@ -41,7 +40,7 @@ func TestNoOpHandler(t *testing.T) {
 func TestLoggingHandler(t *testing.T) {
 	ctx := context.Background()
 
-	ev := &decoding.DecodedEvent{
+	ev := &utils.DecodedEvent{
 		EventName:       "CreateFile",
 		ContractAddress: common.HexToAddress("0xbFAbD47bF901ca1341D128DDD06463AA476E970B"),
 		BlockNumber:     2000,

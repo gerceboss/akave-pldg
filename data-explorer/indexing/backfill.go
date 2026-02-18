@@ -11,7 +11,7 @@ import (
 )
 
 // EventHandler is called for each decoded event during backfill.
-type EventHandler func(ctx context.Context, ev *decoding.DecodedEvent) error
+type EventHandler func(ctx context.Context, ev *utils.DecodedEvent) error
 
 // Backfill runs eth_getLogs with event topic filters over the block range,
 // decodes each log, and invokes the handler. Uses chunked requests and
@@ -88,12 +88,12 @@ func Backfill(ctx context.Context, cfg config.BackfillConfig, handler EventHandl
 }
 
 // NoOpHandler is a no-op EventHandler for testing or dry runs.
-func NoOpHandler(ctx context.Context, ev *decoding.DecodedEvent) error {
+func NoOpHandler(ctx context.Context, ev *utils.DecodedEvent) error {
 	return nil
 }
 
 // LoggingHandler logs each decoded event and passes through.
-func LoggingHandler(ctx context.Context, ev *decoding.DecodedEvent) error {
+func LoggingHandler(ctx context.Context, ev *utils.DecodedEvent) error {
 	slog.Info("event",
 		"name", ev.EventName,
 		"block", ev.BlockNumber,
