@@ -240,7 +240,7 @@ func (db *DB) UpdateEventsBatch(ctx context.Context, blockNum int64, eventsByTxH
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
 	defer tx.Rollback()
-for txHashStr, events := range eventsByTxHash {
+	for txHashStr, events := range eventsByTxHash {
 		eventsJSON, err := json.Marshal(events)
 		if err != nil {
 			return fmt.Errorf("failed to marshal events: %w", err)
@@ -254,7 +254,7 @@ for txHashStr, events := range eventsByTxHash {
 				events = COALESCE(actions.events, '[]'::jsonb) || EXCLUDED.events
 		`
 
-		_, err = tx.ExecContext(ctx, query, txHashStr, blockNum, []byte{}, []byte(txHashStr), string(eventsJSON
+		_, err = tx.ExecContext(ctx, query, txHashStr, blockNum, []byte{}, []byte(txHashStr), string(eventsJSON))
 		_, err = stmt.ExecContext(ctx, string(eventsJSON), blockNum, []byte(txHashStr))
 		if err != nil {
 			return fmt.Errorf("failed to update events: %w", err)

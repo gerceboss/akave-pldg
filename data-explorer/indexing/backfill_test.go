@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"data-explorer/config"
-    "data-explorer/utils"
+	"data-explorer/utils"
 	"github.com/ethereum/go-ethereum/common"
 )
 

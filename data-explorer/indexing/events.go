@@ -14,14 +14,14 @@ import (
 
 var contractAddress common.Address = utils.GetAddress()
 
-func FetchAndDecode(client *ethclient.Client, fromBlock, toBlock int64) ([]*decoding.DecodedEvent, error) {
+func FetchAndDecode(client *ethclient.Client, fromBlock, toBlock int64) ([]*utils.DecodedEvent, error) {
 	rpc := utils.NewRpcUrl(utils.GetRPCURL())
 	rawChunks, err := rpc.GetLogs(context.Background(), 1, 3, int(fromBlock), int(toBlock), contractAddress, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch logs via RPC: %v", err)
 	}
 
-	var decodedEvents []*decoding.DecodedEvent
+	var decodedEvents []*utils.DecodedEvent
 	for _, chunk := range rawChunks {
 		var logs []types.Log
 		if err := json.Unmarshal(chunk, &logs); err != nil {
@@ -41,8 +41,8 @@ func FetchAndDecode(client *ethclient.Client, fromBlock, toBlock int64) ([]*deco
 	return decodedEvents, nil
 }
 
-func FetchAndDecodeInBatches(client *ethclient.Client, fromBlock, toBlock, batchSize int64) ([]*decoding.DecodedEvent, error) {
-	var allEvents []*decoding.DecodedEvent
+func FetchAndDecodeInBatches(client *ethclient.Client, fromBlock, toBlock, batchSize int64) ([]*utils.DecodedEvent, error) {
+	var allEvents []*utils.DecodedEvent
 
 	for start := fromBlock; start <= toBlock; start += batchSize + 1 {
 		end := start + batchSize

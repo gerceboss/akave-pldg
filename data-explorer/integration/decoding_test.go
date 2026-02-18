@@ -2,6 +2,7 @@ package indexing
 
 import (
 	"context"
+	"data-explorer/indexing"
 	"data-explorer/utils"
 	"testing"
 
@@ -36,7 +37,7 @@ func TestBackfillDeterministicRange(t *testing.T) {
 	client := setupClient(t)
 	from, to := getKnownRange(t, client)
 
-	events, err := FetchAndDecode(client, from, to)
+	events, err := indexing.FetchAndDecode(client, from, to)
 	if err != nil {
 		t.Fatalf("FetchAndDecode failed: %v", err)
 	}
@@ -93,7 +94,7 @@ func TestBackfillBlockOrdering(t *testing.T) {
 	client := setupClient(t)
 	from, to := getKnownRange(t, client)
 
-	events, err := FetchAndDecode(client, from, to)
+	events, err := indexing.FetchAndDecode(client, from, to)
 	if err != nil {
 		t.Fatalf("FetchAndDecode failed: %v", err)
 	}
@@ -122,7 +123,7 @@ func TestBackfillBoundaryPrecision(t *testing.T) {
 	blockA := to
 	blockB := to - 1
 
-	eventsA, err := FetchAndDecode(client, blockA, blockA)
+	eventsA, err := indexing.FetchAndDecode(client, blockA, blockA)
 	if err != nil {
 		t.Fatalf("Single-block fetch for block %d failed: %v", blockA, err)
 	}
@@ -132,7 +133,7 @@ func TestBackfillBoundaryPrecision(t *testing.T) {
 		}
 	}
 
-	eventsB, err := FetchAndDecode(client, blockB, blockB)
+	eventsB, err := indexing.FetchAndDecode(client, blockB, blockB)
 	if err != nil {
 		t.Fatalf("Single-block fetch for block %d failed: %v", blockB, err)
 	}
@@ -142,7 +143,7 @@ func TestBackfillBoundaryPrecision(t *testing.T) {
 		}
 	}
 
-	combined, err := FetchAndDecode(client, blockB, blockA)
+	combined, err := indexing.FetchAndDecode(client, blockB, blockA)
 	if err != nil {
 		t.Fatalf("Range fetch [%d, %d] failed: %v", blockB, blockA, err)
 	}
@@ -153,15 +154,15 @@ func TestBackfillBoundaryPrecision(t *testing.T) {
 			blockB, len(eventsB), blockA, len(eventsA), expectedCount, len(combined))
 	}
 
-	fullRange, err := FetchAndDecode(client, from, to)
+	fullRange, err := indexing.FetchAndDecode(client, from, to)
 	if err != nil {
 		t.Fatalf("Full range fetch failed: %v", err)
 	}
-	subA, err := FetchAndDecode(client, from, from+5)
+	subA, err := indexing.FetchAndDecode(client, from, from+5)
 	if err != nil {
 		t.Fatalf("Sub-range A fetch failed: %v", err)
 	}
-	subB, err := FetchAndDecode(client, from+6, to)
+	subB, err := indexing.FetchAndDecode(client, from+6, to)
 	if err != nil {
 		t.Fatalf("Sub-range B fetch failed: %v", err)
 	}
@@ -176,14 +177,14 @@ func TestBackfillBatchPagination(t *testing.T) {
 	client := setupClient(t)
 	from, to := getKnownRange(t, client)
 
-	allAtOnce, err := FetchAndDecode(client, from, to)
+	allAtOnce, err := indexing.FetchAndDecode(client, from, to)
 	if err != nil {
 		t.Fatalf("Single fetch failed: %v", err)
 	}
 
 	batchSizes := []int64{1, 2, 3, 5, 10}
 	for _, bs := range batchSizes {
-		batched, err := FetchAndDecodeInBatches(client, from, to, bs)
+		batched, err := indexing.FetchAndDecodeInBatches(client, from, to, bs)
 		if err != nil {
 			t.Fatalf("Batch fetch (size=%d) failed: %v", bs, err)
 		}
@@ -219,7 +220,7 @@ func TestBackfillContractAddressConsistency(t *testing.T) {
 	client := setupClient(t)
 	from, to := getKnownRange(t, client)
 
-	events, err := FetchAndDecode(client, from, to)
+	events, err := indexing.FetchAndDecode(client, from, to)
 	if err != nil {
 		t.Fatalf("FetchAndDecode failed: %v", err)
 	}
@@ -237,11 +238,11 @@ func TestBackfillIdempotency(t *testing.T) {
 	client := setupClient(t)
 	from, to := getKnownRange(t, client)
 
-	first, err := FetchAndDecode(client, from, to)
+	first, err := indexing.FetchAndDecode(client, from, to)
 	if err != nil {
 		t.Fatalf("First fetch failed: %v", err)
 	}
-	second, err := FetchAndDecode(client, from, to)
+	second, err := indexing.FetchAndDecode(client, from, to)
 	if err != nil {
 		t.Fatalf("Second fetch failed: %v", err)
 	}
