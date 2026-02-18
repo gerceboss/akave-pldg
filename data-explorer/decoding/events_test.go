@@ -17,7 +17,7 @@ func TestDecodeAnyLog(t *testing.T) {
 		name      string
 		eventName string
 		setupLog  func() types.Log
-		check     func(*testing.T, *DecodedEvent)
+		check     func(*testing.T, *utils.DecodedEvent)
 	}{
 		{
 			name:      "Decode CreateBucket",
@@ -41,7 +41,7 @@ func TestDecodeAnyLog(t *testing.T) {
 					Data:   []byte{},
 				}
 			},
-			check: func(t *testing.T, decoded *DecodedEvent) {
+			check: func(t *testing.T, decoded *utils.DecodedEvent) {
 				if decoded.EventName != "CreateBucket" {
 					t.Errorf("Expected CreateBucket, got %s", decoded.EventName)
 				}
@@ -88,7 +88,7 @@ func TestDecodeAnyLog(t *testing.T) {
 					Data:   logData,
 				}
 			},
-			check: func(t *testing.T, decoded *DecodedEvent) {
+			check: func(t *testing.T, decoded *utils.DecodedEvent) {
 				data := decoded.Data
 				if data["file_id"].(string) != "0x0200000000000000000000000000000000000000000000000000000000000000" {
 					t.Errorf("Incorrect file_id")
