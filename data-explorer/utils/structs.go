@@ -140,6 +140,7 @@ type EventMeta struct {
 	Name    string
 	Factory func() interface{}
 }
+
 // Transaction Structs
 
 type AddFileChunkTxParams struct {
