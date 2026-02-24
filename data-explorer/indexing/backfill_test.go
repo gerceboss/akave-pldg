@@ -7,7 +7,6 @@ import (
 	"data-explorer/config"
 	"data-explorer/database"
 	"data-explorer/utils"
-
 	"github.com/ethereum/go-ethereum/common"
 )
 
